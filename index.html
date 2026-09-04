@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kişisel Fotoğraf Galerisi</title>
+    <style>
+        /* ==========================================
+           1. GENEL SIFIRLAMA VE ARKA PLAN (LED EFEKTİ)
+           ========================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; /* Taşmaları ve kaydırma çubuklarını engeller */
+            position: relative;
+        }
+
+        /* 
+           4 Köşe LED Işık Efekti:
+           Ekranın köşelerine yerleştirilmiş, merkeze doğru yumuşakça 
+           sönen (fade off) radial-gradient beyaz parlamalar.
+        */
+        .led-corner {
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            pointer-events: none; /* Tıklamaları engellemez */
+            z-index: 1;
+        }
+
+        .top-left {
+            top: 0;
+            left: 0;
+            background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.08) 35%, transparent 70%);
+        }
+
+        .top-right {
+            top: 0;
+            right: 0;
+            background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.08) 35%, transparent 70%);
+        }
+
+        .bottom-left {
+            bottom: 0;
+            left: 0;
+            background: radial-gradient(circle at bottom left, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.08) 35%, transparent 70%);
+        }
+
+        .bottom-right {
+            bottom: 0;
+            right: 0;
+            background: radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.08) 35%, transparent 70%);
+        }
+
+        /* ==========================================
+           2. GALERİ VE RESİM ÇERÇEVESİ
+           ========================================== */
+        .gallery-container {
+            position: relative;
+            z-index: 2; /* LED efektlerinin üstünde yer alır */
+            width: 90%;
+            max-width: 850px;
+            height: 70vh;
+            max-height: 600px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Resimlerin görüntülendiği maske/çerçeve alanı */
+        .image-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(255, 255, 255, 0.05);
+            background-color: #050505;
+        }
+
+        /* Gösterilen ana resim etiketi */
+        .gallery-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Resim oranını bozmadan çerçeveye sığdırır */
+            display: block;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease-in-out;
+            opacity: 1;
+            transform: translateX(0) scale(1);
+        }
+
+        /* 
+           Akıllı Telefon Tarzı Geçiş Animasyonu Sınıfları:
+           JS üzerinden dinamik olarak eklenip çıkarılır.
+        */
+        /* Sağa kayarak çıkış (Geri butonuna basıldığında) */
+        .slide-out-right {
+            opacity: 0;
+            transform: translateX(40px) scale(0.98);
+        }
+
+        /* Sola kayarak çıkış (İleri butonuna basıldığında) */
+        .slide-out-left {
+            opacity: 0;
+            transform: translateX(-40px) scale(0.98);
+        }
+
+        /* Soldan giriş hazırlığı */
+        .slide-in-left-prep {
+            opacity: 0;
+            transform: translateX(-40px) scale(0.98);
+        }
+
+        /* Sağdan giriş hazırlığı */
+        .slide-in-right-prep {
+            opacity: 0;
+            transform: translateX(40px) scale(0.98);
+        }
+
+        /* ==========================================
+           3. NAVİGASYON BUTONLARI (İLERİ / GERİ)
+           ========================================== */
+        .nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(10px); /* Cam efekti (Glassmorphism) */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            transition: all 0.3s ease;
+            outline: none;
+            user-select: none;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+            transform: translateY(-50%) scale(1.08);
+        }
+
+        .nav-btn:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+
+        /* Sol ve Sağ konumlandırması */
+        .prev-btn {
+            left: 15px;
+        }
+
+        .next-btn {
+            right: 15px;
+        }
+
+        /* SVG Ok İkonları */
+        .nav-btn svg {
+            width: 22px;
+            height: 22px;
+            fill: none;
+            stroke: #ffffff;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Sayfa Altı Görsel Sayacı (Opsiyonel / Şık Görünüm İçin) */
+        .counter {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 13px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+        }
+
+        /* Mobil Cihaz Uyumluluğu (Responsive) */
+        @media (max-width: 768px) {
+            .gallery-container {
+                width: 95%;
+                height: 60vh;
+            }
+
+            .nav-btn {
+                width: 40px;
+                height: 40px;
+            }
+
+            .prev-btn { left: 8px; }
+            .next-btn { right: 8px; }
+
+            .led-corner {
+                width: 200px;
+                height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ekranın 4 Köşesindeki Yumuşak LED Işık Efektleri -->
+    <div class="led-corner top-left"></div>
+    <div class="led-corner top-right"></div>
+    <div class="led-corner bottom-left"></div>
+    <div class="led-corner bottom-right"></div>
+
+    <!-- Galeri Ana Konteyneri -->
+    <div class="gallery-container">
+        
+        <!-- Sol (Geri) Butonu -->
+        <button class="nav-btn prev-btn" id="prevBtn" aria-label="Önceki Fotoğraf">
+            <svg viewBox="0 0 24 24">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </button>
+
+        <!-- Resim Alanı -->
+        <div class="image-wrapper">
+            <img src="" alt="Galeri Fotoğrafı" class="gallery-img" id="galleryImg">
+            <div class="counter" id="counterText">1 / 7</div>
+        </div>
+
+        <!-- Sağ (İleri) Butonu -->
+        <button class="nav-btn next-btn" id="nextBtn" aria-label="Sonraki Fotoğraf">
+            <svg viewBox="0 0 24 24">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+        </button>
+
+    </div>
+
+    <!-- JavaScript Kodları -->
+    <script>
+        // ==========================================
+        // 1. VERİ VE DEĞİŞKEN TANIMLAMALARI
+        // ==========================================
+        
+        // Resim Yolları Array'i (Uzantıları ve isimleri buradan kolayca güncelleyebilirsiniz)
+        const images = [
+            "1.png",
+            "2.png",
+            "3.png",
+            "4.png",
+            "5.png",
+            "6.png",
+            "7.png"
+        ];
+
+        let currentIndex = 0; // Başlangıç indeksi (0 = 1. resim)
+        let isAnimating = false; // Hızlı tıklamalarda animasyon çakışmasını önlemek için kilit
+
+        // DOM Elemanları
+        const galleryImg = document.getElementById('galleryImg');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const counterText = document.getElementById('counterText');
+
+        // ==========================================
+        // 2. İLK YÜKLEME
+        // ==========================================
+        function initGallery() {
+            galleryImg.src = images[currentIndex];
+            updateCounter();
+        }
+
+        function updateCounter() {
+            counterText.textContent = `${currentIndex + 1} / ${images.length}`;
+        }
+
+        // ==========================================
+        // 3. AKILLI GEÇİŞ VE SONSUZ DÖNGÜ MANTIĞI
+        // ==========================================
+        function changeImage(direction) {
+            if (isAnimating) return; // Animasyon devam ediyorsa yeni tıklamayı yok say
+            isAnimating = true;
+
+            // Çıkış animasyon sınıfını belirle
+            const exitClass = (direction === 'next') ? 'slide-out-left' : 'slide-out-right';
+            const enterPrepClass = (direction === 'next') ? 'slide-in-right-prep' : 'slide-in-left-prep';
+
+            // 1. Mevcut resmi kaydırarak ve soluklaştırarak çıkart
+            galleryImg.classList.add(exitClass);
+
+            setTimeout(() => {
+                // 2. İndeksi ve Sonsuz Döngüyü Hesapla
+                if (direction === 'next') {
+                    // 7. resimden sonra 1. resme geçer
+                    currentIndex = (currentIndex + 1) % images.length;
+                } else {
+                    // 1. resimde geri basılırsa 7. resme geçer
+                    currentIndex = (currentIndex - 1 + images.length) % images.length;
+                }
+
+                // 3. Yeni resmi yükle
+                galleryImg.src = images[currentIndex];
+                updateCounter();
+
+                // Çıkış sınıfını kaldır, yeni geliş pozisyonu hazırlık sınıfını ekle
+                galleryImg.classList.remove(exitClass);
+                galleryImg.classList.add(enterPrepClass);
+
+                // Tarayıcının yeni pozisyonu işlemesini bekle ve giriş animasyonunu başlat
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        galleryImg.classList.remove(enterPrepClass);
+                        
+                        // Animasyon bittiğinde kilidi aç
+                        setTimeout(() => {
+                            isAnimating = false;
+                        }, 400); // CSS transition süresi ile uyumlu (0.4s)
+                    });
+                });
+
+            }, 300); // Çıkış animasyonu için bekleme süresi
+        }
+
+        // ==========================================
+        // 4. OLAY DİNLEYİCİLERİ (EVENT LISTENERS)
+        // ==========================================
+        nextBtn.addEventListener('click', () => changeImage('next'));
+        prevBtn.addEventListener('click', () => changeImage('prev'));
+
+        // Klavye Yön Tuşları ile Kontrol Desteği (Ekstra Kolaylık)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                changeImage('next');
+            } else if (e.key === 'ArrowLeft') {
+                changeImage('prev');
+            }
+        });
+
+        // Sayfa yüklendiğinde galeriyi başlat
+        window.addEventListener('DOMContentLoaded', initGallery);
+    </script>
+</body>
+</html>
